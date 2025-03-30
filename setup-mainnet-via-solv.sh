@@ -15,18 +15,25 @@ sudo apt update && sudo apt upgrade -y
 echo "Installing solv..."
 bash -c "$(curl -sSfL 'https://solv-storage.validators.solutions/install')"
 
-# Step 4: Set terminal profile
-echo "Setting terminal profile..."
-cd ~ && source ~/.profile
+# Step 4: Switch to solv user for the rest of the script
+echo "Switching execution to solv user..."
+sudo -u solv bash <<EOF
 
-# Step 5: Reset packages - Uninstall old solv package and install new one
+# Set terminal profile
+echo "Setting terminal profile..."
+cd ~
+source ~/.profile || true  # Prevent errors from stopping execution
+
+# Reset packages - Uninstall old solv package and install new one
 echo "Resetting solv package..."
 pnpm uninstall -g @epics-dao/solv
 pnpm install -g @gabrielhicks/solv
 
-# Step 6: Create and populate solv4.config.json
-echo "Creating solv4.config.json..."
-cat <<EOF > solv4.config.json
+# Ensure solv4.config.json is empty before writing
+echo "" > ~/solv4.config.json
+
+# Create and populate solv4.config.json
+cat <<EOC > ~/solv4.config.json
 {
   "NETWORK": "mainnet-beta",
   "NODE_TYPE": "validator",
@@ -54,20 +61,26 @@ cat <<EOF > solv4.config.json
   "ACCOUNTS_PATH": "/mnt/accounts",
   "SNAPSHOTS_PATH": "/mnt/snapshots"
 }
-EOF
+EOC
 
-# Step 7: Disable and remove swap
+# Disable and remove swap (must run as root)
 echo "Disabling and removing swap..."
 sudo swapoff --all
 sudo rm -rf /swap.img
 
-# Step 8: Setup solv and stop it
+# Setup solv and stop it
 echo "Setting up solv..."
 solv setup && solv stop
 
-# Step 9: Setup mods and ports
+# Setup mods and ports
 echo "Setting up mods and ports..."
-touch mostly_confirmed_threshold
-echo "0.45 4 0 24" > mostly_confirmed_threshold
+touch ~/mostly_confirmed_threshold
+echo "0.45 4 0 24" > ~/mostly_confirmed_threshold
+
+# Step 5: Add Solana CLI to PATH in .bashrc (Moved to the end)
+echo "Updating PATH for solv user..."
+echo 'export PATH="\$HOME/.local/share/solana/install/active_release/bin:\$PATH"' >> ~/.bashrc
+source ~/.bashrc
 
 echo "Setup complete!"
+EOF
